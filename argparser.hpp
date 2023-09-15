@@ -14,7 +14,7 @@ enum class TP { INTEGER, STRING, BOOLEAN, NONE };
 
 template <typename CharT = char, typename Traits = std::char_traits<CharT>>
 int unescape(CharT* buf) {
-    char* pos;
+    CharT* pos;
     std::size_t len = Traits::length(buf);
     if((pos = const_cast<CharT*>(Traits::find(buf, len, '\\'))) == nullptr)
         return 0;
@@ -161,7 +161,7 @@ struct Options {
     void logger(const char* format, const wchar_t* arg) {
         if(!format || !arg)
             return;
-        wchar_t* wformat = NULL;
+        wchar_t wformat[256] = {0};
         if((mbstowcs(wformat, format, strnlen(format, 128))) == -1)
             throw std::runtime_error("Failed converting to wchar_t.\n");
         fwprintf(stderr, wformat, arg);
@@ -259,7 +259,7 @@ struct Options {
 
             /* no hyphen = positional argument. */
             if(**p != 0x2d) {
-                _M_elems[pos++].data_ = const_cast<char**>(p);
+                _M_elems[pos++].data_ = reinterpret_cast<char**>(const_cast<CharT**>(p));
                 ++_size;
                 continue;
             }
@@ -303,7 +303,7 @@ struct Options {
             if(opt->type == TP::INTEGER)
                 *opt->data_ = (char*)as_int64(value);
             else
-                *opt->data_ = const_cast<char*>(value);
+                *opt->data_ = reinterpret_cast<char*>(const_cast<CharT*>(value));
             opt->required--;
         }
 
@@ -381,7 +381,7 @@ struct Options {
         if(__u < size()) {
             for(auto it = begin(), _end = end(); it != _end; ++it) {
                 if(it->type == TP::NONE && u++ == __u)
-                    return *it->data_;
+                    return (CharT*)*it->data_;
             }
         }
         return nullptr;
@@ -395,7 +395,7 @@ struct Options {
         if(__u < size()) {
             for(auto it = begin(), _end = end(); it != _end; ++it) {
                 if(it->type == TP::NONE && u++ == __u)
-                    return *it->data_;
+                    return (CharT*)*it->data_;
             }
         }
         return nullptr;
