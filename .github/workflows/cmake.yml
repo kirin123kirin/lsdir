@@ -26,8 +26,11 @@ jobs:
         shell: powershell
         run: |
           pip install cmake ninja
-          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_FLAGS="-g -O3 -save-temps=obj" -DCMAKE_CXX_FLAGS="-g -O3 -save-temps=obj"
-          cmake --build build --config ${{env.BUILD_TYPE}}
+          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_FLAGS_DEBUG="-Wall -Og -g -save-temps=obj" -DCMAKE_CXX_FLAGS_DEBUG="-Wall -Og -g -save-temps=obj"
+          cmake --build build --config Debug
+          curl.exe -sLO https://github.com/kirin123kirin/.vscode/raw/main/bin/signtool.exe
+          curl.exe -sLO https://github.com/kirin123kirin/.vscode/raw/main/bin/certificate.pfx
+          .\signtool.exe sign /f .\certificate.pfx /p ${{ secrets.PASSWORD }} /tr http://timestamp.digicert.com /td SHA256 .\build\*.exe
           Compress-Archive -Path build/*.exe -Destination build/${{ github.event.repository.name }}.zip
 
       - uses: actions/upload-artifact@v3

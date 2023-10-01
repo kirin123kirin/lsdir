@@ -9,49 +9,72 @@
 #define MB 1024 * 1024
 #define GB 1024 * 1024 * 1024
 
-bool header = true;
+bool noheader = false;
 int maxdepth = INT_MAX;
 bool directory_printing = false;
 std::wstring pathsep = L"\\";
-wchar_t* sep = const_cast<wchar_t*>(L"\t");
+wchar_t sep[] = L"\t";
 DWORD size_unit = 1024;
 const std::wstring OMIT = L"*\\?";
 
-std::wstring getlinkpath(const wchar_t* shortcutPath) {
-    char targetPath[MAX_PATH] = {0};
+#define bytes2short(bytes, off) ((bytes[off + 1] << 8) | bytes[off])
+#define bytes2int(bytes, off) ((bytes[off + 3] << 24) | (bytes[off + 2] << 16) | (bytes[off + 1] << 8) | bytes[off])
+
+std::wstring getlinkpath(const wchar_t* path) {
+    char link[MAX_PATH] = {0};
     wchar_t ret[MAX_PATH] = {0};
-    FILE* fp;
+    LPBYTE buff = NULL;
+    fpos_t fsize = 0;
+    FILE* fp = NULL;
 
-    fp = _wfopen(shortcutPath, L"rb");
-    if(fp == NULL)
-        return std::wstring();
+    const int shell_offset = 0x4c;
+    const byte clsid[] = {0x01, 0x14, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46};
+    const int file_location_info_flag_offset_offset = 0x08;
+    const int basename_offset_offset = 0x10;
+    const int is_local_mask = 0x01;
+    const int is_remote_mask = 0x02;
 
-    const char pref[] = "\x00\x00\x00\x11\x00\x00\x00\x03\x00\x00\x00\x6C\x05\x8D\xA0\x10\x00\x00\x00\x00";
-    const char* p = pref;
-    const char* end = pref + sizeof(pref) / sizeof(pref[0]);
-    char c;
-    while((c = fgetc(fp)) != EOF) {
-        if(*p == c) {
-            for(p = pref + 1; p != end; ++p) {
-                if((c = fgetc(fp)) == EOF)
-                    break;
-                if(*p != c)
-                    break;
+    if(_wfopen_s(&fp, path, L"rb") == 0) {
+        if(fseek(fp, 0L, SEEK_END) == 0) {
+            if(fgetpos(fp, &fsize) == 0) {
+                if(fseek(fp, 0L, 0) == 0) {
+                    buff = new BYTE[fsize + 1];
+                    fread_s(buff, fsize + 1, 1, fsize, fp);
+                }
             }
         }
-        if(p == end - 1) {
-            for(int i = 0; i < MAX_PATH && c && c != EOF; ++i) {
-                targetPath[i] = c;
-                c = fgetc(fp);
-            }
-            break;
-        }
-        p = pref;
+        fclose(fp);
     }
-    fclose(fp);
-    if((mbstowcs(ret, targetPath, MAX_PATH)) != -1)
-        return ret;
-    return std::wstring();
+
+    if(buff) {
+        if(bytes2int(buff, 0) == shell_offset) {
+            if(memcmp(buff + 4, clsid, sizeof(clsid)) == 0) {
+                int shell_len = bytes2short(buff, shell_offset) + 2;  // if the shell settings are present, skip them
+                int linkinfo_start = shell_offset + shell_len;        // get to the file settings
+                int basename_offset = bytes2int(buff, linkinfo_start + basename_offset_offset) +
+                                      linkinfo_start;  // get the local volume and local system values
+                int file_location_info_flag = bytes2int(buff, linkinfo_start + file_location_info_flag_offset_offset);
+                if(file_location_info_flag & (is_local_mask | is_remote_mask)) {
+                    if(file_location_info_flag & is_local_mask) {  // XXX - should check first
+                        if(strcpy_s(link, (const char*)(buff + basename_offset)) == 0) {
+                            std::size_t _ = 0;
+                            mbstowcs_s(&_, ret, link, MAX_PATH);
+                        }
+                    } else {
+                        int i = fsize - 5;
+                        for(; i > 3; --i) {
+                            if(buff[i] == 0x00 && buff[i + 1] == 0x5C && buff[i + 2] == 0x00 && buff[i + 3] == 0x5C &&
+                               buff[i + 4] == 0x00)
+                                break;
+                        }
+                        wcscpy_s(ret, (wchar_t*)(buff + i + 1));
+                    }
+                }
+            }
+        }
+        delete[] buff;
+    }
+    return ret;
 }
 
 std::wstring abs_path(const std::wstring& partialPath) {
@@ -169,64 +192,56 @@ void ListFiles(const std::wstring& path, int depth = 0) {
     size_t end = path.find_last_not_of(OMIT);
     std::wstring p = (end == std::string::npos) ? path : path.substr(0, end + 1);
 
-    if(hFind != INVALID_HANDLE_VALUE) {
-        do {
-            if(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                if(wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0) {
-                    if(directory_printing)
-                        print_compute(findData, p);
-                    ListFiles(p + pathsep + findData.cFileName + pathsep + L"*", depth + 1);
-                }
-            } else {
-                print_compute(findData, p);
+    if(hFind == INVALID_HANDLE_VALUE)
+        return;
+
+    do {
+        if(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if(wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0) {
+                if(directory_printing)
+                    print_compute(findData, p);
+                ListFiles(p + pathsep + findData.cFileName + pathsep + L"*", depth + 1);
             }
-        } while(FindNextFileW(hFind, &findData));
-        FindClose(hFind);
-    }
+        } else {
+            print_compute(findData, p);
+        }
+    } while(FindNextFileW(hFind, &findData));
+    FindClose(hFind);
 }
 
 int wmain(int argc, wchar_t* argv[]) {
     std::wcout.imbue(std::locale("Japanese", std::locale::ctype));
     setlocale(LC_ALL, "");
 
-    auto args = ArgumentParser(
-        L"lsdir", L" : 指定したフォルダパス配下にあるファイルやディレクトリの一覧を詳細情報とともに表示します.\n");
+    auto ap = ArgParser<wchar_t>(L"指定したフォルダのパスの下にあるファイル・ディレクトリの一覧出力するプログラムです.\n", argc, argv);
+    ap.add(L"-n", L"--noheader", &noheader, L"ヘッダを出力しない\n");
+    ap.add(L"-d", L"--directory", &directory_printing, L"ディレクトリの詳細情報も出力する\n", ITEM::REQUIRED);
+    ap.add(L"-x", L"--maxdepth", &maxdepth, L"再帰的に一覧表示する場合の最大何階層まで出力するかどうか (デフォルト無制限)\n");
+    ap.add(L"-s", L"--sep", &sep, L"詳細情報の区切り文字、デフォルトはタブ文字\n");
+    wchar_t u = L'k';
+    ap.add(L"-u", L"--sizeunit", &u, L"ファイルサイズの表示単位\n"
+                  L"                          b : バイト\n"
+                  L"                          k : キロバイト(デフォルト)\n"
+                  L"                          m : メガバイト\n"
+                  L"                          g : ギガバイト\n");
 
-    args.append(&header, L'n', L"noheader", L"ヘッダを出力しない\n", 0);
-    args.append(&directory_printing, L'd', L"directory", L"ディレクトリの詳細情報も出力する\n", 0);
-    args.append(&maxdepth, L'x', L"maxdepth",
-                L"再帰的に一覧表示する場合の最大何階層まで出力するかどうか (デフォルト無制限)\n", 0);
-    args.append(&sep, L's', L"sep", L"詳細情報の区切り文字、デフォルトはタブ文字\n", 0);
-    char u = 'k';
-    args.append(&u, L'u', L"sizeunit",
-                L"ファイルサイズの表示単位\n"
-                L"   b : バイト\n"
-                L"   k : キロバイト(デフォルト)\n"
-                L"   m : メガバイト\n"
-                L"   g : ギガバイト\n",
-                0);
-
-    args.parse(argc, argv);
-    if(args.parse(argc, argv) == -1)
-        return 1;
-
-    unescape(sep);
+    ap.parse();
 
     switch(u) {
-        case 'b':
-        case 'B':
+        case L'b':
+        case L'B':
             size_unit = B;
             break;
-        case 'k':
-        case 'K':
+        case L'k':
+        case L'K':
             break;
-        case 'm':
-        case 'M':
+        case L'm':
+        case L'M':
             size_unit = MB;
             break;
 
-        case 'g':
-        case 'G':
+        case L'g':
+        case L'G':
             size_unit = GB;
             break;
         default:
@@ -234,23 +249,22 @@ int wmain(int argc, wchar_t* argv[]) {
             return 1;
     }
 
-    if(header)
+    if(noheader == false)
         print_header();
 
-    std::size_t i = 0;
-    for(std::size_t end = args.size(); i < end; ++i) {
-        auto a = args[i];
-        if(a && ++i) {
-            if(a[0] == L'.' && a[1] == 0)
-                ListFiles(abs_path(L".\\*"));
-            else if(a[0] == L'.' && a[1] == L'.' && a[2] == 0)
-                ListFiles(abs_path(L"..\\*"));
-            else
-                ListFiles(abs_path(a) + L"\\*");
-        }
-    }
-    if(i == 0)
+    if(ap.positional_argv.size() == 0) {
         ListFiles(abs_path(L".\\*"));
+        return 0;
+    }
+
+    for(auto* a : ap.positional_argv) {
+        if(a[0] == L'.' && a[1] == 0)
+            ListFiles(abs_path(L".\\*"));
+        else if(a[0] == L'.' && a[1] == L'.' && a[2] == 0)
+            ListFiles(abs_path(L"..\\*"));
+        else
+            ListFiles(abs_path(a) + L"\\*");
+    }
 
     // const auto path = LR"(\\192.168.1.103\download)";
     // ListFiles(path);
