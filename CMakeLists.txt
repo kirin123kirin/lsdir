@@ -7,8 +7,4 @@ add_executable(
             lsdir.cpp
             argparser.hpp
         )
-add_executable(
-            shortcut
-            shortcut.cpp
-            liblnk.hpp
-        )
+

@@ -213,7 +213,7 @@ int wmain(int argc, wchar_t* argv[]) {
     std::wcout.imbue(std::locale("Japanese", std::locale::ctype));
     setlocale(LC_ALL, "");
 
-    auto ap = ArgParser<wchar_t>(L"指定したフォルダのパスの下にあるファイル・ディレクトリの一覧出力するプログラムです.\n", argc, argv);
+    auto ap = ArgParser(L"指定したフォルダのパスの下にあるファイル・ディレクトリの一覧出力するプログラムです.\n", argc, argv);
     ap.add(L"-n", L"--noheader", &noheader, L"ヘッダを出力しない\n");
     ap.add(L"-d", L"--directory", &directory_printing, L"ディレクトリの詳細情報も出力する\n", ITEM::REQUIRED);
     ap.add(L"-x", L"--maxdepth", &maxdepth, L"再帰的に一覧表示する場合の最大何階層まで出力するかどうか (デフォルト無制限)\n");

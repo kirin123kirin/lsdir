@@ -14,7 +14,7 @@ enum class TP { INT, DOUBLE, STRING, CHAR, CHARP, BOOL, NONE, NULL_t };
 
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
-class ArgParser {
+class _ArgParser {
 
     struct argstruct {
         const CharT* shortarg;
@@ -120,9 +120,9 @@ class ArgParser {
     const CharT* desc;
     unsigned int allow_postional_argc = UINT_MAX;
 
-    ArgParser(int org_argc, CharT** org_argv) : desc(NULL), argc(org_argc), argv(org_argv) {};
-    ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), desc(_desc) {};
-    ~ArgParser(){};
+    _ArgParser(int org_argc, CharT** org_argv) : desc(NULL), argc(org_argc), argv(org_argv) {};
+    _ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), desc(_desc) {};
+    ~_ArgParser(){};
 
    private:
     std::size_t size_ = 0;
@@ -385,5 +385,15 @@ class ArgParser {
         size_ = argc - done;
     }
 };
+
+template <typename CharT>
+_ArgParser<CharT> ArgParser(int org_argc, CharT** org_argv) {
+    return {org_argc, org_argv};
+}
+
+template <typename CharT>
+_ArgParser<CharT> ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) {
+    return {_desc, org_argc, org_argv};
+}
 
 #endif /* _ARGPARSE_HPP_ */
