@@ -238,10 +238,10 @@ class _ArgParser {
         printany("Usage: ", argv[0], " [-h,--help] ");
         for(auto& as : args) {
             bool req = as.item == ITEM::REQUIRED;
-            printany(req ? " " : "[", as.shortarg);
+            printany(req ? " " : " [", as.shortarg);
             if(as.longarg[0])
                 printany(',');
-            printany(as.longarg, req ? " " : "]");
+            printany(as.longarg, req ? " " : "] ");
 
             if(as.arg_len > max_len)
                 max_len = as.arg_len;

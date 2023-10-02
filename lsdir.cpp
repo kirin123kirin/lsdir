@@ -215,7 +215,7 @@ int wmain(int argc, wchar_t* argv[]) {
 
     auto ap = ArgParser(L"指定したフォルダのパスの下にあるファイル・ディレクトリの一覧出力するプログラムです.\n", argc, argv);
     ap.add(L"-n", L"--noheader", &noheader, L"ヘッダを出力しない\n");
-    ap.add(L"-d", L"--directory", &directory_printing, L"ディレクトリの詳細情報も出力する\n", ITEM::REQUIRED);
+    ap.add(L"-d", L"--directory", &directory_printing, L"ディレクトリの詳細情報も出力する\n");
     ap.add(L"-x", L"--maxdepth", &maxdepth, L"再帰的に一覧表示する場合の最大何階層まで出力するかどうか (デフォルト無制限)\n");
     ap.add(L"-s", L"--sep", &sep, L"詳細情報の区切り文字、デフォルトはタブ文字\n");
     wchar_t u = L'k';
