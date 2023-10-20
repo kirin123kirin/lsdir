@@ -3,11 +3,10 @@
 #define _ARGPARSE_HPP_
 
 #include <string> /* for char_traits */
-#include <type_traits> /* for is_pointer */
 #include <vector>
 #include <iostream>
-#include <ios>     // std::left, std::right
-#include <iomanip> // std::setw(int), std::setfill(char)
+#include <ios>     // std::left
+#include <iomanip> // std::setw(int)
 
 enum class ITEM { REQUIRED, OPTION, NONE, NULL_t };
 enum class TP { INT, DOUBLE, STRING, CHAR, CHARP, BOOL, NONE, NULL_t };
@@ -315,7 +314,7 @@ class _ArgParser {
             }
         }
 
-        std::size_t done = 1;
+        std::size_t done = 0;
         for(int i = 1; i < argc; i++) {
             for(auto& as : args) {
                 if(as[argv[i]] == false)
@@ -373,7 +372,7 @@ class _ArgParser {
                 abort(L"Argument Error: 必須の `", as.shortarg, L"` 引数指定がされていません\n");
         }
 
-        for(int i = done + 1, end = argc; i != end; ++i) {
+        for(int i = done + 1; i != argc; ++i) {
             auto v = argv[i];
             if(v[0] == '-')
                 printerr(L"Argument Error: 入力された引数 `", v, L"` は定義されてない不明な引数です\n");
