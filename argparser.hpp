@@ -119,8 +119,8 @@ class _ArgParser {
     const CharT* desc;
     unsigned int allow_postional_argc = UINT_MAX;
 
-    _ArgParser(int org_argc, CharT** org_argv) : desc(NULL), argc(org_argc), argv(org_argv) {};
-    _ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), desc(_desc) {};
+    _ArgParser(int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), positional_argv(), desc(NULL) {};
+    _ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), positional_argv(), desc(_desc) {};
     ~_ArgParser(){};
 
    private:
@@ -324,7 +324,7 @@ class _ArgParser {
                 done = i;
 
                 if(as.type == TP::BOOL) {
-                    *(int*)as.arg = *as.arg ? 0 : 1;
+                    *(bool*)as.arg = *as.arg ? 0 : 1;
                     continue;
                 }
 
@@ -372,10 +372,10 @@ class _ArgParser {
                 abort(L"Argument Error: 必須の `", as.shortarg, L"` 引数指定がされていません\n");
         }
 
-        for(int i = done + 1; i != argc; ++i) {
+        for(int i = done + 1; i < argc; ++i) {
             auto v = argv[i];
             if(v[0] == '-')
-                printerr(L"Argument Error: 入力された引数 `", v, L"` は定義されてない不明な引数です\n");
+                abort(L"Argument Error: 入力された引数 `", v, L"` は定義されてない不明な引数です\n");
             if(allow_postional_argc + done + 1 < i)
                 abort(L"Argument Error: 引数の最大値を超えました。\n位置指定引数は ", allow_postional_argc, L" 個までです\n");
             

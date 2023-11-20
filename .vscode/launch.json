@@ -19,6 +19,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: 現在のファイル",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "C++ Debug",
       "type": "cppvsdbg",
       "request": "launch",
@@ -26,12 +34,14 @@
       "windows": {
         "program": "${workspaceFolder}/build/${fileBasenameNoExtension}.exe",
       },
-      "args": [],
+      "args": ["-l", "Z:/scripts"],
+      // "args": ["-x=1", "\\\\192.168.1.103\\build"],
+      // "args": ["-nd","-x=10", "--sizeunit=m", "--sep", ",", "."],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],
       "preLaunchTask": "Debug C++",
-      "console": "integratedTerminal"
+      "console": "integratedTerminal",
     },
     {
       "name": "C++ Release",

@@ -11,10 +11,6 @@ on:
         required: true
         default: "any"
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
-
 jobs:
   build:
     runs-on: windows-latest
@@ -26,8 +22,8 @@ jobs:
         shell: powershell
         run: |
           pip install cmake ninja
-          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_FLAGS_DEBUG="-Wall -Og -g -save-temps=obj -MT" -DCMAKE_CXX_FLAGS_DEBUG="-Wall -Og -g -save-temps=obj -MT"
-          cmake --build build --config Debug
+          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake --build build --config Release
           curl.exe -sLO https://github.com/kirin123kirin/.vscode/raw/main/bin/signtool.exe
           curl.exe -sLO https://github.com/kirin123kirin/.vscode/raw/main/bin/certificate.pfx
           .\signtool.exe sign /f .\certificate.pfx /p ${{ secrets.PASSWORD }} /tr http://timestamp.digicert.com /td SHA256 .\build\*.exe

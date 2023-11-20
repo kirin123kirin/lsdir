@@ -135,9 +135,13 @@
         "-DCMAKE_BUILD_TYPE=Debug",
         "-DCMAKE_C_COMPILER=clang",
         "-DCMAKE_CXX_COMPILER=clang++",
-        "-DCMAKE_C_FLAGS_DEBUG=\"-Wall -save-temps=obj\"",
-        "-DCMAKE_CXX_FLAGS_DEBUG=\"-Wall -save-temps=obj\"",
-        // "-DCMAKE_FIND_DEBUG_MODE=1",
+        // "-DCMAKE_C_FLAGS=\"-g -O0\"",
+        // "-DCMAKE_CXX_FLAGS=\"-g -O0\"",
+        "-DCMAKE_C_FLAGS=\"-g -O0 -save-temps=obj\"",
+        "-DCMAKE_CXX_FLAGS=\"-g -O0 -save-temps=obj\"",
+        // "-DCMAKE_C_FLAGS=\"-g -O0 -S -masm=intel -save-temps=obj\"",
+        // "-DCMAKE_CXX_FLAGS=\"-g -O0 -S -masm=intel -save-temps=obj\"",
+        "-DCMAKE_FIND_DEBUG_MODE=1",
         "&&",
         "cmake",
         "--build",
@@ -176,7 +180,7 @@
       },
       "dependsOrder": "sequence",
       "dependsOn": [
-        "CLEANUP"
+        // "CLEANUP"
       ],
     },
     {
@@ -193,11 +197,15 @@
         "${fileDirname}/build",
         "-DCMAKE_VERBOSE_MAKEFILE=1",
         "-DCMAKE_INSTALL_PREFIX=${fileDirname}/build/cmake-install",
-        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_C_COMPILER=clang",
         "-DCMAKE_CXX_COMPILER=clang++",
-        "-DCMAKE_C_FLAGS_DEBUG=\"-Wall -Og -g -save-temps=obj\"",
-        "-DCMAKE_CXX_FLAGS_DEBUG=\"-Wall -Og -g -save-temps=obj\"",
+        // "-DCMAKE_C_FLAGS=\"-g -O0\"",
+        // "-DCMAKE_CXX_FLAGS=\"-g -O0\"",
+        "-DCMAKE_C_FLAGS=\"-g -O0 -save-temps=obj\"",
+        "-DCMAKE_CXX_FLAGS=\"-g -O0 -save-temps=obj\"",
+        // "-DCMAKE_C_FLAGS=\"-g -O0 -S -masm=intel -save-temps=obj\"",
+        // "-DCMAKE_CXX_FLAGS=\"-g -O0 -S -masm=intel -save-temps=obj\"",
         "&&",
         "cmake",
         "--build",
@@ -205,11 +213,7 @@
         "&&",
         "cmake",
         "--install",
-        "${fileDirname}/build",
-        "&&",
-        "${workspaceFolder}\\.vscode\\bin\\signtool.exe",
-        "sign","/f","${workspaceFolder}\\.vscode\\bin\\certificate.pfx","/p","${env:PASS}",
-        "/tr","http://timestamp.digicert.com","/td","SHA256", "${workspaceFolder}/build/*.exe",
+        "${fileDirname}/build"
       ],
       "windows": {
         "options": {
@@ -240,7 +244,7 @@
       },
       "dependsOrder": "sequence",
       "dependsOn": [
-        "CLEANUP"
+        // "CLEANUP"
       ],
     },
     {
@@ -269,10 +273,11 @@
           "-O0",
           // "-D_DEBUG",
           "-D_DLL",
-          "-D_MTd",
+          "-D_MT",
           "-std=c++17",
           "-Wall",
-          "-MTd",
+          "-MD",
+          "-MT",
           "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.obj",
           "-MF",
           "${workspaceFolder}/build/${fileBasenameNoExtension}.cxx.obj.d",
@@ -295,7 +300,7 @@
           "-O0",
           // "-D_DEBUG",
           "-D_DLL",
-          "-D_MTd",
+          "-D_MT",
           "-Xclang",
           "--dependent-lib=msvcrt",
           "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.obj",
@@ -354,7 +359,8 @@
         "-I/usr/include/python3.6m",
         "-I/usr/include/python2.7m",
         "-I/usr/include/boost",
-        "-MTd",
+        "-MD",
+        "-MT",
         "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.o",
         "-MF",
         "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.o.d",
@@ -414,13 +420,14 @@
           "-Xclang",
           "-gcodeview",
           // "-D_DEBUG", // <- require
-          "-Og",
+          "-O2",
           "-D_DLL",
           "-D_MT",
           "-Xclang",
           "--dependent-lib=msvcrtd",
           "-std=c++17",
           "-Wall",
+          "-MD",
           "-MT",
           "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.obj",
           "-MF",
@@ -435,13 +442,13 @@
           "&&",
           "clang++",
           "-v",
-          "-fuse-ld=lld-link", //bkav pro AIDetectMalware
+          "-fuse-ld=lld-link",
           "-nostartfiles",
           "-nostdlib",
-          "-g",                //DeepInspect Malicious 
+          "-g",
           "-Xclang",
           "-gcodeview",
-          "-Og",
+          "-O2",
           "-D_DLL",
           "-D_MT",
           "-Xclang",
@@ -476,7 +483,7 @@
           "&&",
           "${workspaceFolder}\\.vscode\\bin\\signtool.exe",
           "sign","/f","${workspaceFolder}\\.vscode\\bin\\certificate.pfx","/p","${env:PASS}",
-          "/tr","http://timestamp.digicert.com","/td","SHA256", "${workspaceFolder}/build/${fileBasenameNoExtension}.exe",
+          "/tr","http://timestamp.digicert.com","/td","SHA256", "${workspaceFolder}/build/*.exe",
           "&&",
           "echo",
           "Linker Success!!!!!!!!!!!!!!!!"
@@ -506,6 +513,7 @@
         "-I/usr/include/python3.6m",
         "-I/usr/include/python2.7m",
         "-I/usr/include/boost",
+        "-MD",
         "-MT",
         "${workspaceFolder}/build/${fileBasenameNoExtension}.cpp.o",
         "-MF",
@@ -540,6 +548,41 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "pre_makedir"
+      ],
+    },
+    {
+      "type": "process",
+      "label": "Debug Setup.py",
+      "group": "build",
+      "command": "python3",
+      "windows": {
+        "command": "python"
+      },
+      "args": [
+        "setup.py",
+        "build",
+        "-gf"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        // "CLEANUP"
+      ],
+    },
+    {
+      "type": "process",
+      "label": "Release Setup.py",
+      "group": "build",
+      "command": "python3",
+      "windows": {
+        "command": "python"
+      },
+      "args": [
+        "setup.py",
+        "build"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        // "CLEANUP"
       ],
     },
   ]
