@@ -144,8 +144,8 @@ class _ArgParser {
     template <> void _printany_(const char* s) { if(s && *s) std::cout << s; }
     template <> void _printany_(const wchar_t* s) { if(s && *s) std::wcout << s; }
     template <> void _printany_(const wchar_t s) { if(s) std::wcout << s; }
-    template <> void _printany_(wchar_t* s) { if(s && *s) std::wcout << s; }
-    template <> void _printany_(wchar_t s) { if(s) std::wcout << s; }
+    // template <> void _printany_(wchar_t* s) { if(s && *s) std::wcout << s; }
+    // template <> void _printany_(wchar_t s) { if(s) std::wcout << s; }
     template <> void _printany_(const std::string& s) { if(s.empty()) std::cout << s; }
     template <> void _printany_(const std::wstring& s) { if(s.empty()) std::wcout << s; }
     
