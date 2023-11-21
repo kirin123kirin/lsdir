@@ -213,7 +213,14 @@
         "&&",
         "cmake",
         "--install",
-        "${fileDirname}/build"
+        "${fileDirname}/build",
+        "&&",
+        "${workspaceFolder}\\.vscode\\bin\\signtool.exe",
+        "sign","/f","${workspaceFolder}\\.vscode\\bin\\certificate.pfx","/p","${env:PASS}",
+        "/tr","http://timestamp.digicert.com","/td","SHA256", "${workspaceFolder}/build/*.exe",
+        "&&",
+        "echo",
+        "Cmake Success!!!!!!!!!!!!!!!!"
       ],
       "windows": {
         "options": {
