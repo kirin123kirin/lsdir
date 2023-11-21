@@ -291,6 +291,8 @@
           "&&",
           "clang++",
           "-v",
+          "-static",
+          "-pthread",
           "-fuse-ld=lld-link",
           "-nostartfiles",
           "-nostdlib",

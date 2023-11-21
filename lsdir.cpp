@@ -9,7 +9,7 @@ namespace fs = std::filesystem;
 #define GB 1024 * 1024 * 1024
 #define MAX_PATH 260
 
-static wchar_t DATETIME_FORMAT[] = L"%Y%m%d_%H:%M:%S";
+static wchar_t DATETIME_FORMAT[] = L"%Y/%m/%d_%H:%M:%S";
 static wchar_t DEFAULT_SEPARATOR[] = L"\t";
 static wchar_t DEFAULT_DISPLAYORDER[] = L"psmbdf";
 
@@ -177,7 +177,7 @@ int wmain(int argc, wchar_t* argv[]) {
 
     wchar_t* format = DATETIME_FORMAT;
     ap.add(L"-f", L"--format-time", &format,
-                L"output timeformat string. (default %Y-%m-%dT%H:%M:%S)\n"
+                L"output timeformat string. (default %Y/%m/%d_%H:%M:%S)\n"
                 L"see format definition.\n"
                 L"https://www.cplusplus.com/reference/ctime/strftime/\n");
     ap.parse();

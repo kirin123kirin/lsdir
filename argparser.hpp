@@ -9,7 +9,7 @@
 #include <iomanip> // std::setw(int)
 
 enum class ITEM { REQUIRED, OPTION, NONE, NULL_t };
-enum class TP { INT, DOUBLE, STRING, CHAR, CHARP, BOOL, NONE, NULL_t };
+enum class TP { CHAR, WCHAR_T, CHARP, DOUBLE, FLOAT, BOOL, INT32_T, INT64_T, UINT32_T, UINT64_T, STRING, NONE, NULL_t };
 
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
@@ -88,26 +88,18 @@ class _ArgParser {
         }
 
        private:
-        TP getType(char arg) { return TP::CHAR; }
-        TP getType(wchar_t arg) { return TP::CHAR; }
-        TP getType(char16_t arg) { return TP::CHAR; }
-        TP getType(char32_t arg) { return TP::CHAR; }
-        TP getType(char* arg) { return TP::CHARP; }
-        TP getType(wchar_t* arg) { return TP::CHARP; }
-        TP getType(char16_t* arg) { return TP::CHARP; }
-        TP getType(char32_t* arg) { return TP::CHARP; }
-        TP getType(double arg) { return TP::INT; }
-        TP getType(float) { return TP::INT; }
-        TP getType(bool) { return TP::BOOL; }
-        TP getType(int8_t) { return TP::INT; }
-        TP getType(int16_t) { return TP::INT; }
-        TP getType(int32_t) { return TP::INT; }
-        TP getType(int64_t) { return TP::INT; }
-        TP getType(uint8_t) { return TP::INT; }
-        TP getType(uint16_t) { return TP::INT; }
-        TP getType(uint32_t) { return TP::INT; }
-        TP getType(uint64_t) { return TP::INT; }
-        template <typename T> TP getType(std::basic_string<T> arg) {return TP::STRING;}
+        TP getType(const char) { return TP::CHAR; }
+        TP getType(const wchar_t) { return TP::WCHAR_T; }
+        TP getType(const char*) { return TP::CHARP; }
+        TP getType(const wchar_t*) { return TP::CHARP; }
+        TP getType(const double) { return TP::DOUBLE; }
+        TP getType(const float) { return TP::FLOAT; }
+        TP getType(const bool) { return TP::BOOL; }
+        TP getType(const int32_t) { return TP::INT32_T; }
+        TP getType(const int64_t) { return TP::INT64_T; }
+        TP getType(const uint32_t) { return TP::UINT32_T; }
+        TP getType(const uint64_t) { return TP::UINT64_T; }
+        template <typename T> TP getType(const std::basic_string<T>&) {return TP::STRING;}
 
     };
 
@@ -335,35 +327,43 @@ class _ArgParser {
                 }
 
                 CharT* argnext = as.has_eq > 0 ? argv[i] + as.has_eq + 1 : argv[++i];
-                if(as.type == TP::INT) {
-                    *(int*)as.arg = std::stoi(argnext);
-                    if(*(int*)as.arg == 0 && !(argv[i][0] == '0' && argv[i][1] == 0)) {
-                        abort(L"Argument Error: 数値型の引数 `", as.shortarg,
-                              L"` に対して、数値以外の文字が入力されたことにより失敗しました\n");
-                    }
-                    break;
-                }
+                bool NotZero = !(argv[i][0] == '0' && argv[i][1] == 0);
 
-                if(as.type == TP::DOUBLE) {
+                if(as.type == TP::INT32_T) {
+                    *(int32_t*)as.arg = std::stol(argnext);
+                    if(*(int32_t*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::UINT32_T) {
+                    *(uint32_t*)as.arg = std::stoul(argnext);
+                    if(*(uint32_t*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::INT64_T) {
+                    *(int64_t*)as.arg = std::stoll(argnext);
+                    if(*(int64_t*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::UINT64_T) {
+                    *(uint64_t*)as.arg = std::stoull(argnext);
+                    if(*(uint64_t*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::FLOAT) {
+                    *(float*)as.arg = std::stof(argnext);
+                    if(*(float*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::DOUBLE) {
                     *(double*)as.arg = std::stod(argnext);
-                    if(*(double*)as.arg == 0 && !(argv[i][0] == '0' && argv[i][1] == 0)) {
-                        abort(L"Argument Error: 浮動小数点型の引数 `", as.shortarg,
-                              L"` に対して、浮動小数点以外の文字が入力されたことにより失敗しました\n");
-                    }
-                    break;
-                }
-                if(as.type == TP::CHARP || as.type == TP::STRING) {
+                    if(*(double*)as.arg == 0 && NotZero)
+                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
+                } else if(as.type == TP::CHARP || as.type == TP::STRING) {
                     unescape(argnext);
-                    Traits::copy((CharT*)as.arg, argv[i], Traits::length(argv[i]));
-                    break;
-                }
-
-                if(as.type == TP::CHAR) {
+                    as.arg = (char*)argv[i];
+                } else if(as.type == TP::WCHAR_T) {
+                    *(wchar_t*)as.arg = *argnext;
+                } else if(as.type == TP::CHAR) {
                     *as.arg = *argnext;
-                    break;
+                } else {
+                    abort(L"Unknown Argument Error: 引数の型を判別出来ませんでした `");
                 }
-
-                abort(L"Unknown Argument Error: 引数の型を判別出来ませんでした `");
+                break;
             }
         }
 

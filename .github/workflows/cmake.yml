@@ -57,7 +57,7 @@ jobs:
         with:
           vt_api_key: ${{ secrets.VT_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: ${{ github.event.repository.name }}.zip
+          files: ${{ github.event.repository.name }}.exe
 
       - name: Create Release
         id: create_release
@@ -80,6 +80,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.event.repository.name }}.zip
-          asset_name: ${{ github.event.repository.name }}.zip
-          asset_content_type: application/zip
+          asset_path: ${{ github.event.repository.name }}.exe
+          asset_name: ${{ github.event.repository.name }}.exe
+          asset_content_type: application/octet-stream
