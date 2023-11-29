@@ -2,206 +2,351 @@
 #ifndef _ARGPARSE_HPP_
 #define _ARGPARSE_HPP_
 
+
 #include <string> /* for char_traits */
 #include <vector>
 #include <iostream>
-#include <ios>     // std::left
 #include <iomanip> // std::setw(int)
+#include <typeindex> // std::type_index
+
+#define _TXT_(str, type) std::get<const type *>(std::make_tuple(str, L##str))
 
 enum class ITEM { REQUIRED, OPTION, NONE, NULL_t };
-enum class TP { CHAR, WCHAR_T, CHARP, DOUBLE, FLOAT, BOOL, INT32_T, INT64_T, UINT32_T, UINT64_T, STRING, NONE, NULL_t };
+
+char escape_array[128] = {0,    1,   2,    3,   4,    5,   6,    7,    8,   9,   10,  11,  12,   13,  14,   15,
+                            16,   17,  18,   19,  20,   21,  22,   23,   24,  25,  26,  27,  28,   29,  30,   31,
+                            32,   33,  '\"', 35,  36,   37,  38,   '\'', 40,  41,  42,  43,  44,   45,  46,   47,
+                            '\0', 49,  50,   51,  52,   53,  54,   55,   56,  57,  58,  59,  60,   61,  62,   '\?',
+                            64,   65,  66,   67,  68,   69,  70,   71,   72,  73,  74,  75,  76,   77,  78,   79,
+                            80,   81,  82,   83,  84,   85,  86,   87,   88,  89,  90,  91,  '\\', 93,  94,   95,
+                            96,   97,  '\b', 99,  100,  101, '\f', 103,  104, 105, 106, 107, 108,  109, '\n', 111,
+                            112,  113, '\r', 115, '\t', 117, '\v', 119,  120, 121, 122, 123, 124,  125, 126,  127};
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+CharT* unescape(CharT* buf) {
+    std::size_t len = Traits::length(buf);
+    if(Traits::find(buf, len, '\\') == nullptr)
+        return buf;
+    CharT* p = buf;
+    for(CharT *end = buf + len; p < end; ++p) {
+        if(*p == '\\' && *(char*)++p > -1)
+            *p = escape_array[*p];
+    }
+    *p = 0;
+    return buf;
+}
+
+template <typename T> void _printany_(T s) { if(s) std::cout << s << std::flush; }
+template <> void _printany_(const char* s) { if(s && *s) std::cout << s << std::flush; }
+template <> void _printany_(const wchar_t* s) { if(s && *s) std::wcout << s << std::flush; }
+template <> void _printany_(const wchar_t s) { if(s) std::wcout << s << std::flush; }
+// template <> void _printany_(wchar_t* s) { if(s && *s) std::wcout << s << std::flush; }
+// template <> void _printany_(wchar_t s) { if(s) std::wcout << s << std::flush; }
+template <> void _printany_(const std::string& s) { if(s.empty()) std::cout << s << std::flush; }
+template <> void _printany_(const std::wstring& s) { if(s.empty()) std::wcout << s << std::flush; }
+
+template <typename T> void printany(T s) { _printany_(s); }
+
+template <typename Char0, typename Char1>
+void printany(const Char0 s0, const Char1 s1) {
+    _printany_(s0);
+    _printany_(s1);
+}
+
+template <typename Char0, typename Char1, typename Char2>
+void printany(const Char0 s0, const Char1 s1, const Char2 s2) {
+    printany(s0, s1);
+    _printany_(s2);
+}
+
+template <typename Char0, typename Char1, typename Char2, typename Char3>
+void printany(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3) {
+    printany(s0, s1);
+    printany(s2, s3);
+}
+template <typename Char0, typename Char1, typename Char2, typename Char3, typename Char4>
+void printany(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3, const Char4 s4) {
+    printany(s0, s1, s2);
+    printany(s3, s4);
+}
+
+template <typename T> void _printerr_(T s) { if(s) std::cerr << s << std::flush; }
+template <> void _printerr_(const char* s) {if(s && *s) std::cerr << s << std::flush;}
+template <> void _printerr_(char* s) {if(s && *s) std::cerr << s << std::flush;}
+template <> void _printerr_(const wchar_t* s) {if(s && *s) std::wcerr << s << std::flush;}
+template <> void _printerr_(wchar_t* s) {if(s && *s) std::wcerr << s << std::flush;}
+template <> void _printerr_(wchar_t s) {if(s) std::wcerr << s << std::flush;}
+template <> void _printerr_(const std::string& s) {if(!s.empty()) std::cerr << s << std::flush;}
+template <> void _printerr_(const std::wstring& s) {if(!s.empty()) std::wcerr << s << std::flush;}
+
+template <typename T>
+void printerr(T s) {
+    std::cout << "" << std::flush;
+    _printerr_(s);
+}
+template <typename Char0, typename Char1>
+void printerr(const Char0 s0, const Char1 s1) {
+    _printerr_(s0);
+    _printerr_(s1);
+}
+template <typename Char0, typename Char1, typename Char2>
+void printerr(const Char0 s0, const Char1 s1, const Char2 s2) {
+    printerr(s0, s1);
+    _printerr_(s2);
+}
+
+template <typename Char0, typename Char1, typename Char2, typename Char3>
+void printerr(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3) {
+    printerr(s0, s1);
+    printerr(s2, s3);
+}
+
+template <typename Char0, typename Char1, typename Char2, typename Char3, typename Char4>
+void printerr(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3, const Char4 s4) {
+    printerr(s0, s1);
+    printerr(s2, s3);
+    _printerr_(s4);
+}
 
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
-class _ArgParser {
-
-    struct argstruct {
-        const CharT* shortarg;
-        const CharT* longarg;
-        TP type;
-        ITEM item;
-        char* arg;
-        const CharT* helpstr;
-        int parsed;
-        int has_eq;
-        std::size_t arg_len;
-
-        template <typename T>
-        argstruct(const CharT* _shortarg,
-                  const CharT* _longarg,
-                  T* _arg,
-                  const CharT* _helpstr,
-                  ITEM _item = ITEM::OPTION,
-                  TP _type = TP::NONE)
-            : shortarg(_shortarg),
-              longarg(_longarg),
-              item(_item),
-              arg((char*)_arg),
-              helpstr(_helpstr),
-              parsed(0),
-              has_eq(-1) {
-
-            type = (_type == TP::NONE) ? getType(*_arg) : _type;
-            std::size_t shortlen = _shortarg[0] ? Traits::length(_shortarg) : 0;
-            std::size_t longlen = _longarg[0] ? Traits::length(_longarg) : 0;
-            arg_len = (shortlen && longlen) ? (shortlen + 2 + longlen) : (shortlen + longlen);
-
-        };
-
-        argstruct(std::nullptr_t) : shortarg(NULL),
-              longarg(NULL),
-              arg(NULL),
-              helpstr(NULL),
-              type(TP::NULL_t),
-              item(ITEM::NULL_t),
-              parsed(0),
-              has_eq(-1),
-              arg_len(0) {};
-
-        bool operator==(std::nullptr_t) const { return type == TP::NULL_t; }
-        bool operator!=(std::nullptr_t) const { return type != TP::NULL_t; }
-
-        bool operator[](const CharT* v) {
-            has_eq = 0;
-            const CharT* base = v;
-            if(v == NULL || *v != '-')
-                return false;
-            if(*++v != '-') {
-                while (*v && *v != '=') {
-                    if (*v++ == shortarg[1]){
-                        has_eq = (*v == '=') ? v - base : 0;
-                        return true;
-                    }
-                }
-            } else  {
-                const CharT* la = longarg + 1;
-                while(*v && *la) {
-                    if(*v++ != *la++)
-                        return false;
-                }
-                if((*v == 0 || *v == '=') && *la == 0) {
-                    has_eq = (*v == '=') ? v - base : 0;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-       private:
-        TP getType(const char) { return TP::CHAR; }
-        TP getType(const wchar_t) { return TP::WCHAR_T; }
-        TP getType(const char*) { return TP::CHARP; }
-        TP getType(const wchar_t*) { return TP::CHARP; }
-        TP getType(const double) { return TP::DOUBLE; }
-        TP getType(const float) { return TP::FLOAT; }
-        TP getType(const bool) { return TP::BOOL; }
-        TP getType(const int32_t) { return TP::INT32_T; }
-        TP getType(const int64_t) { return TP::INT64_T; }
-        TP getType(const uint32_t) { return TP::UINT32_T; }
-        TP getType(const uint64_t) { return TP::UINT64_T; }
-        template <typename T> TP getType(const std::basic_string<T>&) {return TP::STRING;}
-
-    };
-
-   public:
-    int argc;
-    CharT** argv;
-    std::vector<argstruct> args;
-    std::vector<CharT*> positional_argv;
-    const CharT* desc;
-    unsigned int allow_postional_argc = UINT_MAX;
-
-    _ArgParser(int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), positional_argv(), desc(NULL) {};
-    _ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) : argc(org_argc), argv(org_argv), positional_argv(), desc(_desc) {};
-    ~_ArgParser(){};
-
-   private:
-    std::size_t size_ = 0;
-    CharT split_shortarg[3] = {'-', 0, 0};
-    char escape_array[128] = {0,    1,   2,    3,   4,    5,   6,    7,    8,   9,   10,  11,  12,   13,  14,   15,
-                              16,   17,  18,   19,  20,   21,  22,   23,   24,  25,  26,  27,  28,   29,  30,   31,
-                              32,   33,  '\"', 35,  36,   37,  38,   '\'', 40,  41,  42,  43,  44,   45,  46,   47,
-                              '\0', 49,  50,   51,  52,   53,  54,   55,   56,  57,  58,  59,  60,   61,  62,   '\?',
-                              64,   65,  66,   67,  68,   69,  70,   71,   72,  73,  74,  75,  76,   77,  78,   79,
-                              80,   81,  82,   83,  84,   85,  86,   87,   88,  89,  90,  91,  '\\', 93,  94,   95,
-                              96,   97,  '\b', 99,  100,  101, '\f', 103,  104, 105, 106, 107, 108,  109, '\n', 111,
-                              112,  113, '\r', 115, '\t', 117, '\v', 119,  120, 121, 122, 123, 124,  125, 126,  127};
-
-    CharT* unescape(CharT* buf) {
-        std::size_t len = Traits::length(buf);
-        if(Traits::find(buf, len, '\\') == nullptr)
-            return buf;
-        CharT* p = buf;
-        for(CharT *end = buf + len; p < end; ++p) {
-            if(*p == '\\' && *(char*)++p > -1)
-                *p = escape_array[*p];
-        }
-        *p = 0;
-        return buf;
-    }
-
-    template <typename T> void _printany_(T s) { if(s) std::cout << s; }
-    template <> void _printany_(const char* s) { if(s && *s) std::cout << s; }
-    template <> void _printany_(const wchar_t* s) { if(s && *s) std::wcout << s; }
-    template <> void _printany_(const wchar_t s) { if(s) std::wcout << s; }
-    // template <> void _printany_(wchar_t* s) { if(s && *s) std::wcout << s; }
-    // template <> void _printany_(wchar_t s) { if(s) std::wcout << s; }
-    template <> void _printany_(const std::string& s) { if(s.empty()) std::cout << s; }
-    template <> void _printany_(const std::wstring& s) { if(s.empty()) std::wcout << s; }
-    
-    template <typename T> void printany(T s) { _printany_(s); }
-
-    template <typename Char0, typename Char1>
-    void printany(const Char0 s0, const Char1 s1) {
-        _printany_(s0);
-        _printany_(s1);
-    }
-
-    template <typename Char0, typename Char1, typename Char2>
-    void printany(const Char0 s0, const Char1 s1, const Char2 s2) {
-        printany(s0, s1);
-        _printany_(s2);
-    }
-
-    template <typename Char0, typename Char1, typename Char2, typename Char3>
-    void printany(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3) {
-        printany(s0, s1);
-        printany(s2, s3);
-    }
-    template <typename Char0, typename Char1, typename Char2, typename Char3, typename Char4>
-    void printany(const Char0 s0, const Char1 s1, const Char2 s2, const Char3 s3, const Char4 s4) {
-        printany(s0, s1, s2);
-        printany(s3, s4);
-    }
-
-    template <typename T> void _printerr_(T s) { if(s) std::cerr << s; }
-    template <> void _printerr_(const char* s) {if(s && *s) std::cerr << s;}
-    template <> void _printerr_(char* s) {if(s && *s) std::cerr << s;}
-    template <> void _printerr_(const wchar_t* s) {if(s && *s) std::wcerr << s;}
-    template <> void _printerr_(wchar_t* s) {if(s && *s) std::wcerr << s;}
-    template <> void _printerr_(wchar_t s) {if(s) std::wcerr << s;}
-    template <> void _printerr_(const std::string& s) {if(!s.empty()) std::cerr << s;}
-    template <> void _printerr_(const std::wstring& s) {if(!s.empty()) std::wcerr << s;}
+struct argstruct {
+    const CharT* shortarg;
+    const CharT* longarg;
+    void* value;
+    const CharT* helpstr;
+    ITEM item;
+    std::type_index type;
+    int parsed;
+    int length_of_match;
 
     template <typename T>
-    void printerr(T s) {
-        std::cout << "" << std::flush;
-        _printerr_(s);
-    }
-    template <typename Char0, typename Char1>
-    void printerr(const Char0 s0, const Char1 s1) {
-        _printerr_(s0);
-        _printerr_(s1);
-    }
-    template <typename Char0, typename Char1, typename Char2>
-    void printerr(const Char0 s0, const Char1 s1, const Char2 s2) {
-        printerr(s0, s1);
-        _printerr_(s2);
+    argstruct(const CharT* _shortarg, const CharT* _longarg, T* _value, const CharT* _helpstr, ITEM _item = ITEM::NONE) : shortarg(_shortarg), longarg(_longarg), value(_value), helpstr(_helpstr), item(_item), type(typeid(std::remove_const_t<T>)), parsed(0), length_of_match(0) {}
+    argstruct() : shortarg(NULL), longarg(NULL), value(NULL), helpstr(NULL), type(typeid(nullptr)), item(ITEM::NULL_t), parsed(0), length_of_match(0) {}
+
+    const char* type_string() {
+        if(type == typeid(bool))
+            return "[BOOL]   ";
+        if(type == typeid(int32_t)||type == typeid(int64_t))
+            return "[INT]    ";
+        if(type == typeid(uint32_t) || type == typeid(uint64_t))
+            return "[UINT]   ";
+        if(type == typeid(float))
+            return "[FLOAT]  ";
+        if(type == typeid(double))
+            return "[DOUBLE] ";
+        return     "[STRING] ";
     }
 
+    bool operator==(const CharT* arg) { 
+        if(arg && *arg && arg[0] == '-') {
+            if (arg[1] == shortarg[1] && arg[2] == 0){
+                length_of_match = 2;
+                return true;
+            }
+            const CharT* lng = longarg;
+            while(*arg && *lng && *arg++ == *lng++) {}
+            if(*lng == 0) {
+                length_of_match = lng - longarg;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void set(void) {
+        if (parsed)
+            std::cerr << "Warning: Already Parsed `" << shortarg << "`." << std::endl << std::flush;
+
+        if(type == typeid(bool))
+            *(bool*)value = *(bool*)value ? 0 : 1;
+        ++parsed;
+    }
+    void set(CharT* src) {
+        if (src == NULL || !src[0])
+            return;
+        if (parsed)
+            std::cerr << "Warning: Already Parsed `" << shortarg << "`." << std::endl << std::flush;
+        bool NotZero = !(src[0] == '0' && src[1] == 0);
+        if(type == typeid(int32_t)) {
+            if((*(int32_t*)value = std::stol(src)) == 0 && NotZero)
+                force_abort();
+        } else if (type == typeid(int64_t)) {
+            if((*(int64_t*)value = std::stoll(src)) == 0 && NotZero)
+                force_abort();
+        } else if(type == typeid(uint32_t)) {
+            if((*(uint32_t*)value = std::stoul(src)) == 0 && NotZero)
+                force_abort();
+        } else if (type == typeid(uint64_t)) {
+            if((*(uint64_t*)value = std::stoull(src)) == 0 && NotZero)
+                force_abort();
+        } else if (type == typeid(float)) {
+            if((*(float*)value = std::stof(src)) == 0 && NotZero)
+                force_abort();
+        } else if (type == typeid(double)) {
+            if((*(double*)value = std::stod(src)) == 0 && NotZero)
+                force_abort();
+        } else if (type == typeid(CharT*)) {
+            *(CharT**)value = src;
+        } else if (type == typeid(CharT)) {
+            *(CharT*)value = *src;
+        } else {
+            printerr("Error: Unknown This Type.\n\n");
+            exit(EXIT_FAILURE);
+        }
+        ++parsed;
+    }
+
+    private:
+    void force_abort() {
+        printerr("Error: Ileagal Argument value of `", shortarg, "` expected TypeValue of", type.name(), "\n\n");
+        exit(EXIT_FAILURE);
+    }
+};
+
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+struct argparser {
+    using type = CharT;
+    int argc;
+    CharT** argv;
+    std::vector<argstruct<CharT>> args;
+    const CharT* desc;
+    const CharT* prog;
+    std::vector<CharT*> positional_argv;
+
+    argparser(int _argc, CharT** _argv, const CharT* _desc = NULL) : argc(_argc), argv(_argv), desc(_desc), prog(_argv[0]), positional_argv() {}
+
+    template <typename T>
+    void add(const CharT* _shortarg, const CharT* _longarg, T&& _value, const CharT* _helpstr, ITEM _item = ITEM::OPTION) {
+        if(!_shortarg && !_longarg)
+            abort("Passed NULL pointers to both argstrings\n\n");
+        if(_shortarg && *_shortarg == 0)
+            abort("Passed empty string to shortarg\n\n");
+        if(_longarg && *_longarg == 0)
+            abort("Passed empty string to longarg\n\n");
+        if(_shortarg && (Traits::length(_shortarg) != 2 || _shortarg[0] != '-' || _shortarg[1] == '-'))
+            abort("Shortarg must be a single dash followed by a single character\n\n");
+        if(_longarg && (Traits::length(_longarg) <= 2 || _longarg[0] != '-' || _longarg[1] != '-'))
+            abort("Longarg must be two dashes followed by any number of additional characters\n\n");
+        if(_shortarg && _shortarg[0] == '-' && _shortarg[1] == 'h' && _shortarg[2] == 0)
+            abort("-h is reserved short arg\n\n");
+        if(_longarg && _longarg[0] == '-' && _longarg[1] == '-' && _longarg[2] == 'h' &&
+           _longarg[3] == 'e' && _longarg[4] == 'l' && _longarg[5] == 'p' && _longarg[6] == 0)
+                abort("--help is reserved long arg\n\n");
+        args.emplace_back(_shortarg, _longarg, _value, _helpstr, _item);
+    }
+
+    void print_help() {
+        std::size_t max_len = 10;  // mean length of "-h, --help";;
+        std::size_t rightpad = 4;
+        const char* leftpadstr = "    ";
+
+        const CharT* c = prog + (Traits::length(prog) - 1);
+        for(; prog != c; --c) {
+            if(*c == '\\' || *c == '/')
+                break;
+        }
+
+        printany("Usage: ", c + 1, " [-h,--help] ");
+
+        if(desc)
+            printany("\n\nDescription: \n", leftpadstr, desc, "\n\n");
+
+        for(auto& as : args) {
+            bool req = as.item == ITEM::REQUIRED;
+            printany(req ? " " : " [", as.shortarg);
+            if(as.longarg[0])
+                printany(',');
+            printany(as.longarg, req ? " " : "] ");
+            std::size_t len = Traits::length(as.longarg);
+            if(len > max_len)
+                max_len = len;
+        }
+        printany("\n\n");
+
+        printany("Arguments:\n", "    -h, --help\n\n");
+        for(auto& as : args) {
+            printany("    ", as.shortarg);
+            if(as.longarg[0])
+                printany(", ", as.longarg);
+            std::cout << std::left << std::setw(max_len + rightpad - Traits::length(as.longarg)) << "";
+            printany(as.type_string(), as.helpstr, "\n");
+        }
+    }
+
+    void parse() {
+        bool _ = true;
+
+        argstruct help_arg(_TXT_("-h", CharT), _TXT_("--help", CharT), &_, _TXT_("this help", CharT));
+
+        for(CharT** v = argv + 1, **end = argv + argc; v != end; ++v) {
+            CharT* a = *v;
+            if(*a != '-') {
+                positional_argv.emplace_back(a);
+                continue;
+            }
+            if(help_arg == a) {
+                print_help();
+                exit(EXIT_FAILURE);
+            }
+
+            int done = 0;
+            auto r = Traits::find(a, Traits::length(a), '=');
+            std::size_t idx = r ? r - a : 0;
+            for(auto& s : args) {
+
+                /* parse of long option */
+                if(a[1] == '-') {
+                    if(idx)
+                        a[idx] = 0;
+                    if(s == a) {
+                        ++done;
+                        if(s.type == typeid(bool))
+                            s.set();
+                        else if(idx)
+                            s.set(&(a[idx + 1]));
+                        else if(*(v + 1)[0] == '-')
+                            abort("Error: Nothing Argument of `", *v, "`.\n\n");
+                        else
+                            s.set(*++v);
+                    }
+                    continue;
+                }
+
+                /* parse of short option */
+                CharT* c = a;
+                while(*++c) {
+                    CharT short_flag[3] = {'-', *c, 0};
+                    if(s == short_flag) {
+                        ++done;
+                        if(s.type == typeid(bool)) {
+                            s.set();
+                            continue;
+                        }
+                        unescape(++c);
+                        if(!*c || (*c == '=' && !*++c))
+                            abort("Error: Nothing Argument of `", *v, "`.\n\n");
+                        s.set(c);
+                        break;
+                    }
+                }
+            }
+            if(done == 0)
+                abort("Error: `", *v, "` is Unknown Option.\n\n");
+        }
+
+        /* Check parsed Require options */
+        for(auto& s : args) {
+            if(s.item == ITEM::REQUIRED && s.parsed == 0)
+                abort("Error: `", s.shortarg, "`is Require Argument.\n\n");
+        }
+    }
+
+   private:
     template <typename Char0>
     void abort(const Char0 msg) {
-        printerr("\nAborting\n\n", msg);
+        printerr(msg);
         print_help();
         exit(EXIT_FAILURE);
     }
@@ -215,184 +360,16 @@ class _ArgParser {
         printerr(s0, s1);
         abort(s2);
     }
-
-   public:
-    std::size_t size() { return size_; }
-    void print_help() {
-        std::size_t max_len = 10;  // mean length of "-h, --help";;
-        std::size_t rightpad = 4;
-        const char* leftpadstr = "    ";
-
-        if(desc)
-            printany("Description: \n", leftpadstr, desc, "\n\n");
-
-        printany("Usage: ", argv[0], " [-h,--help] ");
-        for(auto& as : args) {
-            bool req = as.item == ITEM::REQUIRED;
-            printany(req ? " " : " [", as.shortarg);
-            if(as.longarg[0])
-                printany(',');
-            printany(as.longarg, req ? " " : "] ");
-
-            if(as.arg_len > max_len)
-                max_len = as.arg_len;
-        }
-        printany("\n\n");
-
-        printany("Arguments:\n", "    -h, --help\n\n");
-        for(auto& as : args) {
-            printany("    ", as.shortarg);
-            if(as.longarg[0])
-                printany(", ", as.longarg);
-
-            std::cout << std::left << std::setw(max_len + rightpad - as.arg_len) << "";
-            printany(as.helpstr, "\n");
-        }
-    }
-
-    template <typename T>
-    void add(const CharT* shortarg, const CharT* longarg, std::basic_string<T>* arg, const CharT* helpstr, ITEM item = ITEM::OPTION, TP type = TP::NONE) {
-        this->add(shortarg, longarg, &arg.data(), helpstr, item, type);
-    }
-
-    template <typename T>
-    void add(const CharT* shortarg, const CharT* longarg, T* arg, const CharT* helpstr, ITEM item = ITEM::OPTION, TP type = TP::NONE) {
-
-        if(!shortarg && !longarg)
-            abort("Passed NULL pointers to both argstrings");
-        if(shortarg && *shortarg == 0)
-            abort("Passed empty string to shortarg");
-        if(longarg && *longarg == 0)
-            abort("Passed empty string to longarg");
-        if(shortarg && (Traits::length(shortarg) != 2 || shortarg[0] != '-' || shortarg[1] == '-'))
-            abort("Shortarg must be a single dash followed by a single character");
-        if(longarg && (Traits::length(longarg) <= 2 || longarg[0] != '-' || longarg[1] != '-'))
-            abort("Longarg must be two dashes followed by any number of additional characters");
-        if(shortarg && shortarg[0] == '-' && shortarg[1] == 'h' && shortarg[2] == 0)
-            abort("-h is reserved short arg");
-        if(longarg && longarg[0] == '-' && longarg[1] == '-' && longarg[2] == 'h' &&
-           longarg[3] == 'e' && longarg[4] == 'l' && longarg[5] == 'p' && longarg[6] == 0)
-                abort("--help is reserved long arg");
-        if(!arg)
-            abort("Passed NULL arg pointer to argparser_add");
-        if(!helpstr)
-            abort("Passed NULL help string to argparser_add");
-
-        args.emplace_back(shortarg, longarg, arg, helpstr, item, type);
-    }
-
-    argstruct& get(const CharT kw) {
-        for(auto& as : args) {
-            if(as[kw])
-                return as;
-        }
-        return nullptr;
-    }
-
-    void parse(unsigned int max_postional_argc = UINT_MAX) {
-        allow_postional_argc = max_postional_argc;
-
-        /* Check if -h, --help was passed as only arg */
-        if(argc == 2) {
-            CharT* a = argv[1];
-
-            if(a && a[0] && a[0] == '-') {
-                if((a[1] == 'h' && a[2] == 0) ||
-                   (a[1] == '-' && a[1] == 'h' && a[2] == 'e' && a[3] == 'l' &&
-                    a[4] == 'p' && a[5] == 0)) {
-                    print_help();
-                    exit(EXIT_SUCCESS);
-                }
-            }
-        }
-
-        std::size_t done = 0;
-        for(int i = 1; i < argc; i++) {
-            for(auto& as : args) {
-                if(as[argv[i]] == false)
-                    continue;
-
-                as.parsed = 1;
-                done = i;
-
-                if(as.type == TP::BOOL) {
-                    *(bool*)as.arg = *as.arg ? 0 : 1;
-                    continue;
-                }
-
-                if(i + 1 >= argc) {
-                    as.parsed = 0;
-                    done = 1;
-                    continue;
-                }
-
-                CharT* argnext = as.has_eq > 0 ? argv[i] + as.has_eq + 1 : argv[++i];
-                bool NotZero = !(argv[i][0] == '0' && argv[i][1] == 0);
-
-                if(as.type == TP::INT32_T) {
-                    *(int32_t*)as.arg = std::stol(argnext);
-                    if(*(int32_t*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::UINT32_T) {
-                    *(uint32_t*)as.arg = std::stoul(argnext);
-                    if(*(uint32_t*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::INT64_T) {
-                    *(int64_t*)as.arg = std::stoll(argnext);
-                    if(*(int64_t*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::UINT64_T) {
-                    *(uint64_t*)as.arg = std::stoull(argnext);
-                    if(*(uint64_t*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::FLOAT) {
-                    *(float*)as.arg = std::stof(argnext);
-                    if(*(float*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::DOUBLE) {
-                    *(double*)as.arg = std::stod(argnext);
-                    if(*(double*)as.arg == 0 && NotZero)
-                        abort(L"Argument Error: `", as.shortarg, L"` 引数の変換に失敗しました\n");
-                } else if(as.type == TP::CHARP || as.type == TP::STRING) {
-                    unescape(argnext);
-                    as.arg = (char*)argv[i];
-                } else if(as.type == TP::WCHAR_T) {
-                    *(wchar_t*)as.arg = *argnext;
-                } else if(as.type == TP::CHAR) {
-                    *as.arg = *argnext;
-                } else {
-                    abort(L"Unknown Argument Error: 引数の型を判別出来ませんでした `");
-                }
-                break;
-            }
-        }
-
-        for(auto as : args) {
-            if(as.parsed == 0 && as.item == ITEM::REQUIRED)
-                abort(L"Argument Error: 必須の `", as.shortarg, L"` 引数指定がされていません\n");
-        }
-
-        for(int i = done + 1; i < argc; ++i) {
-            auto v = argv[i];
-            if(v[0] == '-')
-                abort(L"Argument Error: 入力された引数 `", v, L"` は定義されてない不明な引数です\n");
-            if(allow_postional_argc + done + 1 < i)
-                abort(L"Argument Error: 引数の最大値を超えました。\n位置指定引数は ", allow_postional_argc, L" 個までです\n");
-            
-            positional_argv.emplace_back(v);
-        }
-        size_ = argc - done;
-    }
 };
 
 template <typename CharT>
-_ArgParser<CharT> ArgParser(int org_argc, CharT** org_argv) {
+argparser<CharT> ArgParser(int org_argc, CharT** org_argv) {
     return {org_argc, org_argv};
 }
 
 template <typename CharT>
-_ArgParser<CharT> ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) {
-    return {_desc, org_argc, org_argv};
+argparser<CharT> ArgParser(const CharT* _desc, int org_argc, CharT** org_argv) {
+    return {org_argc, org_argv, _desc};
 }
 
 #endif /* _ARGPARSE_HPP_ */
