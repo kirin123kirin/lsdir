@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <string>
 #include "argparser.hpp"
 
 namespace fs = std::filesystem;
@@ -22,6 +23,71 @@ static const int bn_ofof = 0x10;
 static const int local_mask = 0x01;
 static const int remote_mask = 0x02;
 
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+bool fnmatch(const CharT* txt, const CharT* pat) {
+    if(*pat == 0)
+        return *txt == 0;
+
+    const CharT* t = txt, *p = pat, *it = txt, *ip = NULL;
+
+    while(*t && *p) {
+        if(*t == *p || *p == '?') {
+            ++t;
+            ++p;
+        } else if(*p == '*') {
+            it = t;
+            ip = p++;
+        } else if(ip != NULL) {
+            t = ++it;
+            p = ip + 1;
+        } else {
+            return false;
+        }
+    }
+
+    while(*p == '*')
+        ++p;
+
+    return *p == 0;
+}
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+bool fnmatch(const std::basic_string<CharT>& txt, const std::basic_string<CharT>& pat) {
+    if(pat.empty())
+        return txt.empty();
+
+    int i = 0, j = 0;
+    int t_i = -1, p_i = -1;
+    int n = txt.size(), m = pat.size();
+
+    while(i < n) {
+        if(j < m && txt[i] == pat[j] || pat[j] == '?') {
+            i++;
+            j++;
+        } else if(j < m && pat[j] == '*') {
+            t_i = i;
+            p_i = j++;
+        } else if(p_i != -1) {
+            i = ++t_i;
+            j = p_i + 1;
+        } else {
+            return false;
+        }
+    }
+
+    while(j < m && pat[j] == '*')
+        j++;
+
+    return j == m;
+}
+
+bool fnmatch(const std::filesystem::path& txt, const std::filesystem::path& pat) {
+    if(pat.empty())
+        return txt.empty();
+
+    return fnmatch(txt.c_str(), pat.c_str());
+}
+
 struct FileInfo {
     const fs::path f;
     struct _stat s;
@@ -43,9 +109,9 @@ struct FileInfo {
     }
     void print_username() { printf("%c", '?'); }
     void print_groupname() { printf("%c", '?'); }
-    void print_atime(wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_atime, date_format); }
-    void print_mtime(wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_mtime, date_format); }
-    void print_ctime(wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_ctime, date_format); }
+    void print_atime(const wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_atime, date_format); }
+    void print_mtime(const wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_mtime, date_format); }
+    void print_ctime(const wchar_t* date_format = DATETIME_FORMAT) { datetimestr(s.st_ctime, date_format); }
     void print_size(int _unit) { wprintf(L"%lu", s.st_size / _unit); }
     void print_dirname() { wprintf(L"%s", f.parent_path().c_str()); }
     void print_basename() { wprintf(L"%s", f.filename().c_str()); }
@@ -90,7 +156,7 @@ struct FileInfo {
         }
         delete[] buf;
     }
-    void print_dirs(wchar_t* sep = DEFAULT_SEPARATOR) {
+    void print_dirs(const wchar_t* sep = DEFAULT_SEPARATOR) {
         const auto& ff = f.parent_path();
         const wchar_t* p = ff.c_str();
         if((p[0] == L'\\' && p[1] == L'\\') || (p[0] == L'/' && p[1] == L'/')) {
@@ -101,6 +167,8 @@ struct FileInfo {
             wprintf(L"%c", p[0]);
             wprintf(L"%c", p[1]);
             p += 2;
+        } else if(p[0] == L'.' && (p[1] == L'\\' || p[1] == L'/')) {
+            p += 2;
         }
         for(; *p; ++p) {
             if(*p == L'\\' || *p == L'/')
@@ -110,8 +178,89 @@ struct FileInfo {
         }
     }
 
+    void print_header(const wchar_t* display_order = DEFAULT_DISPLAYORDER, const wchar_t* sep = DEFAULT_SEPARATOR, int unit = KB, bool follow_symlink = false) {
+        const wchar_t* p = display_order;
+        int i = 0;
+        while(*p) {
+            if(i != 0)
+                wprintf(L"%s", sep);
+            if(*p == 'a')
+                wprintf(L"%s", L"アクセス日時");
+            else if(*p == 'b')
+                wprintf(L"%s", L"ファイル名");
+            else if(*p == 'c')
+                wprintf(L"%s", L"作成日時");
+            else if(*p == 'd')
+                wprintf(L"%s", L"親フォルダ名");
+            else if(*p == 'f')
+                wprintf(L"%s", L"フルパス");
+            else if(*p == 'g')
+                wprintf(L"%s", L"グループ名");
+            else if(*p == 'm')
+                wprintf(L"%s", L"更新日時");
+            else if(*p == 'p')
+                wprintf(L"%s", L"種類");
+            else if(*p == 's') {
+                wprintf(L"%s", L"サイズ");
+                if(unit == B)
+                    wprintf(L"%s", L"(B)");
+                else if(unit == KB)
+                    wprintf(L"%s", L"(KB)");
+                else if(unit == MB)
+                    wprintf(L"%s", L"(MB)");
+                else if(unit == GB)
+                    wprintf(L"%s", L"(GB)");
+            } else if(*p == 'u')
+                wprintf(L"%s", L"ユーザ名");
+            ++p, ++i;
+        }
+        if(follow_symlink)
+            wprintf(L"%s", L"リンク先パス");
+
+        wprintf(L"%s", sep);
+        wprintf(L"%s", L"DIRS");
+        wprintf(L"%s", L"\n");
+    }
+
+    void print_info(const wchar_t* display_order = DEFAULT_DISPLAYORDER, const wchar_t* sep = DEFAULT_SEPARATOR, const wchar_t* format = DATETIME_FORMAT, int unit = KB, bool follow_symlink = false) {
+            const wchar_t* p = display_order;
+            int i = 0;
+            while(*p) {
+                if(i != 0)
+                    wprintf(L"%s", sep);
+                if(*p == 'a')
+                    print_atime(format);
+                else if(*p == 'b')
+                    print_basename();
+                else if(*p == 'c')
+                    print_ctime(format);
+                else if(*p == 'd')
+                    print_dirname();
+                else if(*p == 'f')
+                    print_fullpath();
+                else if(*p == 'g')
+                    print_groupname();
+                else if(*p == 'm')
+                    print_mtime(format);
+                else if(*p == 'p')
+                    print_permission();
+                else if(*p == 's')
+                    print_size(unit);
+                else if(*p == 'u')
+                    print_username();
+                ++p, ++i;
+            }
+            if (follow_symlink){
+                wprintf(L"%s", sep);
+                print_symlink_target();
+            }
+            wprintf(L"%s", sep);
+            print_dirs(sep);
+            wprintf(L"\n");
+    }
+
     private:
-    int datetimestr(time_t t, wchar_t* date_format = DATETIME_FORMAT) {
+    int datetimestr(time_t t, const wchar_t* date_format = DATETIME_FORMAT) {
         struct tm tmp;
         if(localtime_s(&tmp, &t))
             return -1;
@@ -204,102 +353,61 @@ int wmain(int argc, wchar_t* argv[]) {
     }
 
     if(header) {
-        const wchar_t* p = display_order;
-        int i = 0;
-        while(*p) {
-            if(i != 0)
-                wprintf(L"%s", sep);
-            if(*p == 'a')
-                wprintf(L"%s", L"アクセス日時");
-            else if(*p == 'b')
-                wprintf(L"%s", L"ファイル名");
-            else if(*p == 'c')
-                wprintf(L"%s", L"作成日時");
-            else if(*p == 'd')
-                wprintf(L"%s", L"親フォルダ名");
-            else if(*p == 'f')
-                wprintf(L"%s", L"フルパス");
-            else if(*p == 'g')
-                wprintf(L"%s", L"グループ名");
-            else if(*p == 'm')
-                wprintf(L"%s", L"更新日時");
-            else if(*p == 'p')
-                wprintf(L"%s", L"種類");
-            else if(*p == 's'){
-                wprintf(L"%s", L"サイズ");
-                if(unit == B)
-                    wprintf(L"%s", L"(B)");
-                else if(unit == KB)
-                    wprintf(L"%s", L"(KB)");
-                else if(unit == MB)
-                    wprintf(L"%s", L"(MB)");
-                else if(unit == GB)
-                    wprintf(L"%s", L"(GB)");
-            }
-            else if(*p == 'u')
-                wprintf(L"%s", L"ユーザ名");
-            ++p, ++i;
-        }
-        if (follow_symlink)
-            wprintf(L"%s", L"リンク先パス");
-
-        wprintf(L"%s", sep);
-        wprintf(L"%s", L"DIRS");
-        wprintf(L"%s", L"\n");
+        FileInfo fp(".");
+        fp.print_header(display_order, sep, unit, follow_symlink);
     }
 
     if(ap.positional_argv.size() == 0)
         ap.positional_argv.push_back(L".");
 
     for(auto a : ap.positional_argv) {
-        for(auto entry = fs::recursive_directory_iterator(fs::absolute(a), fs::directory_options::skip_permission_denied), last = fs::recursive_directory_iterator(); entry != last; ++entry) {
-            if(entry->is_directory()){
+        bool is_wildcard = false;
+        int len = 0, i = 0;
+        for(auto _ = a; *_; ++_) {
+            i += (*_ == '*' || *_ == '.' || *_ == '\\' || *_ == '//');
+            ++len;
+            is_wildcard = is_wildcard || (*_ == '*' || *_ == '?');
+        }
+        if(len == i)
+            is_wildcard = false;
+
+        fs::path pth(a);
+        if(fs::is_regular_file(pth)) {
+            FileInfo fp(pth);
+            fp.print_info(display_order, sep, format, unit, follow_symlink);
+            continue;
+        }
+        fs::path d = fs::is_directory(pth) ? pth: pth.parent_path();
+        for(const wchar_t* c = pth.c_str(), *s = pth.c_str(); *c; ++c) {
+            if(*c == '?' || *c == '*'){
+                d = fs::path(pth.c_str(), c).parent_path();
+                break;
+            }
+        }
+        if(fs::is_directory(d) == false){
+            std::wcerr << L"ファイルまたはディレクトリが存在しませんでした `" << a << L"` 正しいか確認してください" << std::endl;
+            return 1;
+        }
+        for(auto entry = fs::recursive_directory_iterator(d, fs::directory_options::skip_permission_denied),
+                 last = fs::recursive_directory_iterator();
+            entry != last; ++entry) {
+            if(entry->is_directory()) {
                 if(entry.depth() > maxdepth)
                     break;
                 if(!disp_dirs)
                     continue;
             }
-            auto pth = entry->path();
-            auto ep = pth.filename().wstring();
+            auto epth = entry->path();
+            auto ep = epth.filename().c_str();
 
             if(ep[0] == L'~' && ep[1] == L'$')
                 continue;
 
-            FileInfo fp(entry->path());
-            const wchar_t* p = display_order;
-            int i = 0;
-            while(*p) {
-                if(i != 0)
-                    wprintf(L"%s", sep);
-                if(*p == 'a')
-                    fp.print_atime(format);
-                else if(*p == 'b')
-                    fp.print_basename();
-                else if(*p == 'c')
-                    fp.print_ctime(format);
-                else if(*p == 'd')
-                    fp.print_dirname();
-                else if(*p == 'f')
-                    fp.print_fullpath();
-                else if(*p == 'g')
-                    fp.print_groupname();
-                else if(*p == 'm')
-                    fp.print_mtime(format);
-                else if(*p == 'p')
-                    fp.print_permission();
-                else if(*p == 's')
-                    fp.print_size(unit);
-                else if(*p == 'u')
-                    fp.print_username();
-                ++p, ++i;
-            }
-            if (follow_symlink){
-                wprintf(L"%s", sep);
-                fp.print_symlink_target();
-            }
-            wprintf(L"%s", sep);
-            fp.print_dirs(sep);
-            wprintf(L"\n");
+            if(is_wildcard && fnmatch(epth.generic_wstring(), pth.generic_wstring()) == false)
+                continue;
+
+            FileInfo fp(epth);
+            fp.print_info(display_order, sep, format, unit, follow_symlink);
         }
     }
     return 0;
