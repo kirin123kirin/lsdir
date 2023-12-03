@@ -61,7 +61,7 @@ bool fnmatch(const std::basic_string<CharT>& txt, const std::basic_string<CharT>
     int n = txt.size(), m = pat.size();
 
     while(i < n) {
-        if(j < m && txt[i] == pat[j] || pat[j] == '?') {
+        if(j < m && (txt[i] == pat[j] || pat[j] == '?')) {
             i++;
             j++;
         } else if(j < m && pat[j] == '*') {
@@ -364,7 +364,7 @@ int wmain(int argc, wchar_t* argv[]) {
         bool is_wildcard = false;
         int len = 0, i = 0;
         for(auto _ = a; *_; ++_) {
-            i += (*_ == '*' || *_ == '.' || *_ == '\\' || *_ == '//');
+            i += (*_ == '*' || *_ == '.' || *_ == '\\' || *_ == '/');
             ++len;
             is_wildcard = is_wildcard || (*_ == '*' || *_ == '?');
         }
@@ -380,7 +380,7 @@ int wmain(int argc, wchar_t* argv[]) {
         fs::path d = fs::is_directory(pth) ? pth: pth.parent_path();
         for(const wchar_t* c = pth.c_str(), *s = pth.c_str(); *c; ++c) {
             if(*c == '?' || *c == '*'){
-                d = fs::path(pth.c_str(), c).parent_path();
+                d = fs::path(s, c).parent_path();
                 break;
             }
         }
@@ -403,7 +403,7 @@ int wmain(int argc, wchar_t* argv[]) {
             if(ep[0] == L'~' && ep[1] == L'$')
                 continue;
 
-            if(is_wildcard && fnmatch(epth.generic_wstring(), pth.generic_wstring()) == false)
+            if(is_wildcard && fnmatch(epth.generic_wstring().c_str(), pth.generic_wstring().c_str()) == false)
                 continue;
 
             FileInfo fp(epth);
