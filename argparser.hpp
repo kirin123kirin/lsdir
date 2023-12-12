@@ -250,8 +250,6 @@ struct argparser {
 
         printany("Usage: ", c + 1, " [-h,--help] ");
 
-        if(desc)
-            printany("\n\nDescription: \n", leftpadstr, desc, "\n\n");
 
         for(auto& as : args) {
             bool req = as.item == ITEM::REQUIRED;
@@ -264,6 +262,9 @@ struct argparser {
                 max_len = len;
         }
         printany("\n\n");
+
+        if(desc)
+            printany("\n\nDescription: \n", leftpadstr, desc, "\n\n");
 
         printany("Arguments:\n", "    -h, --help\n\n");
         for(auto& as : args) {
